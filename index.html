@@ -108,7 +108,7 @@
       <!-- Daily Timetable Setup -->
       <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-xs uppercase tracking-wider font-bold text-slate-300">Weekly Master Schedule</h2>
+          <h2 class="text-xs uppercase tracking-wider font-bold text-slate-300">Default Weekly Schedule</h2>
           <select id="scheduleDaySelect" onchange="renderTimetableEditor()" class="bg-slate-800 text-xs text-slate-200 px-2 py-1 rounded-lg border border-slate-700 font-semibold outline-none">
             <option value="1">Monday</option>
             <option value="2">Tuesday</option>
@@ -122,7 +122,7 @@
         <div id="periodList" class="space-y-2 mb-3"></div>
 
         <button onclick="addPeriodToDay()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-emerald-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center gap-1">
-          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Lecture Period
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Period to Default Schedule
         </button>
       </div>
 
@@ -137,7 +137,7 @@
 
   <!-- DAY EDIT BOTTOM SHEET MODAL -->
   <div id="dayModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col justify-end hidden">
-    <div class="bg-slate-900 border-t border-slate-800 rounded-t-2xl max-h-[85vh] flex flex-col p-4 shadow-2xl max-w-lg mx-auto w-full">
+    <div class="bg-slate-900 border-t border-slate-800 rounded-t-2xl max-h-[90vh] flex flex-col p-4 shadow-2xl max-w-lg mx-auto w-full">
       <!-- Sheet Header -->
       <div class="flex items-center justify-between pb-3 border-b border-slate-800">
         <div>
@@ -155,24 +155,27 @@
           <span>⚡</span> Mark All Lectures Present
         </button>
 
-        <!-- Lectures List for the Day -->
+        <!-- Lectures List for THIS specific day -->
         <div>
-          <label class="text-[11px] uppercase font-bold tracking-wider text-slate-400 block mb-2">Periods & Attendance</label>
-          <div id="modalPeriodList" class="space-y-2"></div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-[11px] uppercase font-bold tracking-wider text-slate-400">Lectures For This Day</label>
+            <button onclick="addCustomLectureToModal()" class="text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-0.5">
+              <i data-lucide="plus" class="w-3 h-3"></i> Add Lecture
+            </button>
+          </div>
+          <div id="modalPeriodList" class="space-y-2.5"></div>
         </div>
 
         <!-- Contextual Tags -->
         <div>
           <label class="text-[11px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5">Mood & Activity Tags</label>
-          <div id="tagPillsContainer" class="flex flex-wrap gap-1.5">
-            <!-- Preset Tags injected -->
-          </div>
+          <div id="tagPillsContainer" class="flex flex-wrap gap-1.5"></div>
         </div>
 
         <!-- Special Event / Daily Highlight -->
         <div>
-          <label class="text-[11px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5">Special Event / Memory</label>
-          <input id="modalNoteInput" type="text" placeholder="e.g. Accounts Test, College Fest, Boxing Gym..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" />
+          <label class="text-[11px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5">Special Event / Memory of the Day</label>
+          <input id="modalNoteInput" type="text" placeholder="e.g. Bridge Course Intro, Accounts Test, Fest..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" />
         </div>
       </div>
 
@@ -186,8 +189,7 @@
   </div>
 
   <script>
-    // --- DATA STATE INITIALIZATION ---
-    const PRESET_TAGS = ['🚀 Orientation', '🥊 Workout/Gym', '📚 Quiz/Exam', '🎉 Fest', '🎯 Project', '🤒 Sick Leave', '✨ Chill'];
+    const PRESET_TAGS = ['🚀 Induction', '🌉 Bridge Course', '🥊 Workout/Gym', '📚 Quiz/Exam', '🎉 Fest', '🎯 Project', '🤒 Sick Leave', '✨ Chill'];
     
     const DEFAULT_TIMETABLE = {
       1: [{ time: "09:00 AM", subject: "Financial Accounting" }, { time: "10:30 AM", subject: "Business Economics" }, { time: "12:00 PM", subject: "Marketing" }],
@@ -201,10 +203,9 @@
     let appData = {
       target: 75,
       timetable: DEFAULT_TIMETABLE,
-      days: {} // Key: YYYY-MM-DD -> { periods: [{subject, status}], note: '', tags: [] }
+      days: {} 
     };
 
-    // Load from LocalStorage
     const saved = localStorage.getItem('college_attendance_data');
     if (saved) {
       try { appData = JSON.parse(saved); } catch(e) { console.error(e); }
@@ -214,6 +215,7 @@
     let activeMonth = new Date().getMonth();
     let activeModalDate = null;
     let selectedModalTags = [];
+    let modalPeriodsBuffer = [];
 
     function persist() {
       localStorage.setItem('college_attendance_data', JSON.stringify(appData));
@@ -222,7 +224,6 @@
       lucide.createIcons();
     }
 
-    // --- TAB SWITCHING ---
     function switchTab(tab) {
       ['calendar', 'analytics', 'timetable'].forEach(t => {
         document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
@@ -238,7 +239,6 @@
       lucide.createIcons();
     }
 
-    // --- CALENDAR RENDERING ---
     const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
     function prevMonth() {
@@ -262,7 +262,6 @@
       const startingCol = (firstDayOfMonth === 0 ? 7 : firstDayOfMonth) - 1; 
       const totalDays = new Date(activeYear, activeMonth + 1, 0).getDate();
 
-      // Empty padding cells
       for (let i = 0; i < startingCol; i++) {
         const emptyCell = document.createElement('div');
         emptyCell.className = "h-20 bg-slate-900/30 rounded-lg border border-slate-900/60 opacity-20";
@@ -287,7 +286,8 @@
           const dots = dayData.periods.map(p => {
             if (p.status === 'present') return '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>';
             if (p.status === 'absent') return '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>';
-            return '<span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>';
+            if (p.status === 'cancelled') return '<span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>';
+            return '<span class="w-1.5 h-1.5 rounded-full bg-slate-700"></span>';
           }).join('');
           dotsHtml = `<div class="flex flex-wrap gap-0.5 mt-0.5">${dots}</div>`;
         }
@@ -310,86 +310,94 @@
       lucide.createIcons();
     }
 
-    // --- DAY MODAL / LOGGING ---
+    // --- DAY MODAL / LOGGING (WITH DIRECT EDITING) ---
     function openDayModal(dateStr) {
       activeModalDate = dateStr;
       const d = new Date(dateStr + 'T00:00:00');
-      const dayOfWeek = d.getDay(); // 0 is Sun, 1 is Mon...
+      const dayOfWeek = d.getDay(); 
       const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       
       document.getElementById('modalDateTitle').textContent = `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
       document.getElementById('modalDaySubtitle').textContent = `${dayNames[dayOfWeek]} Schedule`;
 
       let dayData = appData.days[dateStr];
-      if (!dayData) {
-        // Build fresh from timetable for that day
+      if (dayData && dayData.periods) {
+        modalPeriodsBuffer = JSON.parse(JSON.stringify(dayData.periods));
+        selectedModalTags = dayData.tags || [];
+        document.getElementById('modalNoteInput').value = dayData.note || '';
+      } else {
         const sched = appData.timetable[dayOfWeek] || [];
-        dayData = {
-          periods: sched.map(s => ({ subject: s.subject, time: s.time, status: 'unmarked' })),
-          note: '',
-          tags: []
-        };
+        modalPeriodsBuffer = sched.map(s => ({ subject: s.subject, time: s.time, status: 'unmarked' }));
+        selectedModalTags = [];
+        document.getElementById('modalNoteInput').value = '';
       }
 
-      selectedModalTags = dayData.tags || [];
-      document.getElementById('modalNoteInput').value = dayData.note || '';
-
-      renderModalPeriods(dayData.periods);
+      renderModalPeriods();
       renderModalTags();
-
       document.getElementById('dayModal').classList.remove('hidden');
+      lucide.createIcons();
     }
 
     function closeModal() {
       document.getElementById('dayModal').classList.add('hidden');
     }
 
-    function renderModalPeriods(periods) {
+    function renderModalPeriods() {
       const container = document.getElementById('modalPeriodList');
-      if (!periods || periods.length === 0) {
-        container.innerHTML = `<div class="text-xs text-slate-500 py-3 text-center">No lectures scheduled for this day.</div>`;
+      if (!modalPeriodsBuffer || modalPeriodsBuffer.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-4 bg-slate-800/40 rounded-xl border border-dashed border-slate-700">
+            <p class="text-xs text-slate-400 mb-1">No lectures for this day.</p>
+            <button onclick="addCustomLectureToModal()" class="text-xs text-emerald-400 font-bold hover:underline">+ Add a Lecture</button>
+          </div>
+        `;
         return;
       }
 
-      container.innerHTML = periods.map((p, idx) => `
-        <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700/60 flex items-center justify-between">
-          <div>
-            <div class="text-xs font-bold text-white">${p.subject}</div>
-            <div class="text-[10px] text-slate-400">${p.time || 'Period ' + (idx+1)}</div>
+      container.innerHTML = modalPeriodsBuffer.map((p, idx) => `
+        <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700/60 space-y-2">
+          <div class="flex items-center gap-1.5">
+            <input type="text" value="${p.time || ''}" placeholder="Time" onchange="updateModalPeriodField(${idx}, 'time', this.value)" class="bg-slate-900 text-[10px] font-mono text-slate-300 px-2 py-1 rounded w-20 border border-slate-700 focus:outline-none focus:border-emerald-500" />
+            <input type="text" value="${p.subject}" placeholder="Subject Name" onchange="updateModalPeriodField(${idx}, 'subject', this.value)" class="bg-slate-900 text-xs font-bold text-white px-2 py-1 rounded flex-1 border border-slate-700 focus:outline-none focus:border-emerald-500" />
+            <button onclick="deleteModalPeriod(${idx})" class="p-1 text-slate-500 hover:text-rose-400" title="Delete Lecture">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
           </div>
-          <div class="flex gap-1">
-            <button onclick="setPeriodStatus(${idx}, 'present')" class="px-2 py-1 rounded text-xs font-bold ${p.status === 'present' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}">✓</button>
-            <button onclick="setPeriodStatus(${idx}, 'absent')" class="px-2 py-1 rounded text-xs font-bold ${p.status === 'absent' ? 'bg-rose-600 text-white' : 'bg-slate-700 text-slate-300'}">✕</button>
-            <button onclick="setPeriodStatus(${idx}, 'cancelled')" class="px-2 py-1 rounded text-xs font-bold ${p.status === 'cancelled' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300'}">⚪</button>
+          <div class="flex items-center justify-between pt-1 border-t border-slate-700/50">
+            <span class="text-[10px] text-slate-400 font-medium">Status:</span>
+            <div class="flex gap-1.5">
+              <button onclick="setModalPeriodStatus(${idx}, 'present')" class="px-2.5 py-1 rounded text-xs font-bold transition ${p.status === 'present' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-700 text-slate-300'}">✓ Present</button>
+              <button onclick="setModalPeriodStatus(${idx}, 'absent')" class="px-2.5 py-1 rounded text-xs font-bold transition ${p.status === 'absent' ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-700 text-slate-300'}">✕ Absent</button>
+              <button onclick="setModalPeriodStatus(${idx}, 'cancelled')" class="px-2 py-1 rounded text-xs font-bold transition ${p.status === 'cancelled' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'}">⚪ Off</button>
+            </div>
           </div>
         </div>
       `).join('');
+      lucide.createIcons();
     }
 
-    function setPeriodStatus(idx, status) {
-      let dayData = getOrCreateActiveDayData();
-      dayData.periods[idx].status = status;
-      renderModalPeriods(dayData.periods);
+    function addCustomLectureToModal() {
+      modalPeriodsBuffer.push({ time: "09:00 AM", subject: "Bridge Course / Lecture", status: "present" });
+      renderModalPeriods();
+    }
+
+    function deleteModalPeriod(idx) {
+      modalPeriodsBuffer.splice(idx, 1);
+      renderModalPeriods();
+    }
+
+    function updateModalPeriodField(idx, field, val) {
+      modalPeriodsBuffer[idx][field] = val;
+    }
+
+    function setModalPeriodStatus(idx, status) {
+      modalPeriodsBuffer[idx].status = status;
+      renderModalPeriods();
     }
 
     function markAllPresentForModal() {
-      let dayData = getOrCreateActiveDayData();
-      dayData.periods.forEach(p => p.status = 'present');
-      renderModalPeriods(dayData.periods);
-    }
-
-    function getOrCreateActiveDayData() {
-      if (!appData.days[activeModalDate]) {
-        const d = new Date(activeModalDate + 'T00:00:00');
-        const dayOfWeek = d.getDay();
-        const sched = appData.timetable[dayOfWeek] || [];
-        appData.days[activeModalDate] = {
-          periods: sched.map(s => ({ subject: s.subject, time: s.time, status: 'unmarked' })),
-          note: '',
-          tags: []
-        };
-      }
-      return appData.days[activeModalDate];
+      modalPeriodsBuffer.forEach(p => p.status = 'present');
+      renderModalPeriods();
     }
 
     function renderModalTags() {
@@ -414,14 +422,16 @@
     }
 
     function saveModalDay() {
-      const dayData = getOrCreateActiveDayData();
-      dayData.note = document.getElementById('modalNoteInput').value.trim();
-      dayData.tags = selectedModalTags;
+      appData.days[activeModalDate] = {
+        periods: modalPeriodsBuffer,
+        note: document.getElementById('modalNoteInput').value.trim(),
+        tags: selectedModalTags
+      };
       closeModal();
       persist();
     }
 
-    // --- GLOBAL STATS, STREAK & ANALYTICS ---
+    // --- GLOBAL STATS & SUBJECT ANALYTICS ---
     function updateGlobalStats() {
       let attended = 0;
       let held = 0;
@@ -446,18 +456,15 @@
         safetyBadge.className = "px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-700 text-slate-300";
         safetyBadge.textContent = "No Data";
       } else if (percentage >= target) {
-        // Calculate safe bunks: (attended) / (held + bunks) >= target/100
         const maxBunks = Math.floor((attended - (target / 100) * held) / (target / 100));
         safetyBadge.className = "px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
         safetyBadge.textContent = `Safe: Can miss ${Math.max(0, maxBunks)} lectures`;
       } else {
-        // Calculate needed: (attended + needed) / (held + needed) >= target/100
         const needed = Math.ceil(((target / 100) * held - attended) / (1 - (target / 100)));
         safetyBadge.className = "px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30";
         safetyBadge.textContent = `Must attend ${needed} in a row`;
       }
 
-      // Calculate streak
       calculateStreak();
     }
 
@@ -470,7 +477,7 @@
           const hasAttended = data.periods.some(p => p.status === 'present');
           const hasAbsent = data.periods.some(p => p.status === 'absent');
           if (hasAttended && !hasAbsent) streak++;
-          else break;
+          else if (hasAbsent) break;
         }
       }
       document.getElementById('streakCount').textContent = `${streak} Day Streak`;
@@ -482,9 +489,11 @@
       Object.values(appData.days).forEach(d => {
         if (d.periods) {
           d.periods.forEach(p => {
-            if (!subStats[p.subject]) subStats[p.subject] = { held: 0, attended: 0 };
-            if (p.status === 'present') { subStats[p.subject].held++; subStats[p.subject].attended++; }
-            else if (p.status === 'absent') { subStats[p.subject].held++; }
+            const sub = p.subject.trim();
+            if (!sub) return;
+            if (!subStats[sub]) subStats[sub] = { held: 0, attended: 0 };
+            if (p.status === 'present') { subStats[sub].held++; subStats[sub].attended++; }
+            else if (p.status === 'absent') { subStats[sub].held++; }
           });
         }
       });
@@ -504,7 +513,7 @@
         const isSafe = pct >= target;
 
         let marginText = '';
-        if (s.held === 0) marginText = 'No data';
+        if (s.held === 0) marginText = 'No held lectures';
         else if (isSafe) {
           const bunks = Math.floor((s.attended - (target / 100) * s.held) / (target / 100));
           marginText = `Can skip ${Math.max(0, bunks)} more`;
@@ -531,7 +540,6 @@
       }).join('');
     }
 
-    // --- TIMETABLE CONFIGURATION ---
     function updateTarget(val) {
       appData.target = parseInt(val);
       document.getElementById('targetInputVal').textContent = `${val}%`;
@@ -582,7 +590,6 @@
       }
     }
 
-    // --- INITIAL BOOT ---
     document.getElementById('targetInput').value = appData.target || 75;
     document.getElementById('targetInputVal').textContent = `${appData.target || 75}%`;
     document.getElementById('targetDisplay').textContent = `${appData.target || 75}%`;
