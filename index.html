@@ -55,7 +55,7 @@
       📊 Subjects
     </button>
     <button onclick="switchTab('timetable')" id="tab-timetable" class="flex-1 py-2.5 text-center text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors">
-      ⚙️ Timetable
+      ⚙️ Timetable & Sync
     </button>
   </div>
 
@@ -77,7 +77,7 @@
 
       <!-- Calendar Days Header -->
       <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400 uppercase py-1">
-        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div class="text-amber-400/80">Sat</div><div class="text-rose-400/80">Sun</div>
       </div>
 
       <!-- Calendar 7-Column Grid -->
@@ -88,13 +88,11 @@
     <section id="view-analytics" class="hidden space-y-3">
       <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
         <h2 class="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Subject Wise Breakdown</h2>
-        <div id="subjectAnalyticsList" class="space-y-2.5">
-          <!-- Dynamically Injected -->
-        </div>
+        <div id="subjectAnalyticsList" class="space-y-2.5"></div>
       </div>
     </section>
 
-    <!-- VIEW 3: TIMETABLE & SUBJECT CONFIG -->
+    <!-- VIEW 3: TIMETABLE, CONFIG & SYNC -->
     <section id="view-timetable" class="hidden space-y-4">
       <!-- Target Attendance Setting -->
       <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
@@ -126,6 +124,20 @@
         </button>
       </div>
 
+      <!-- Backup & Sync Across Devices -->
+      <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Laptop / Mobile Sync & Backup</h3>
+        <p class="text-[11px] text-slate-400">Export your logged data to copy from Laptop to Mobile or save a backup.</p>
+        <div class="flex gap-2">
+          <button onclick="exportBackupData()" class="flex-1 py-2 bg-indigo-600 active:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Export Backup
+          </button>
+          <button onclick="promptImportData()" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border border-slate-700">
+            <i data-lucide="upload" class="w-3.5 h-3.5"></i> Import Backup
+          </button>
+        </div>
+      </div>
+
       <!-- Reset / Manage Data -->
       <div class="p-3.5 bg-rose-950/20 border border-rose-900/40 rounded-xl">
         <h3 class="text-xs font-bold text-rose-400 mb-1">Clear Data</h3>
@@ -142,7 +154,7 @@
       <div class="flex items-center justify-between pb-3 border-b border-slate-800">
         <div>
           <h2 id="modalDateTitle" class="text-base font-bold text-white">August 14, 2026</h2>
-          <p id="modalDaySubtitle" class="text-xs text-slate-400">Friday Schedule</p>
+          <p id="modalDaySubtitle" class="text-xs text-slate-400">Schedule</p>
         </div>
         <button onclick="closeModal()" class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -154,6 +166,14 @@
         <button onclick="markAllPresentForModal()" class="w-full py-2 bg-emerald-600 active:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950">
           <span>⚡</span> Mark All Lectures Present
         </button>
+
+        <!-- Custom Day Color / Theme Picker -->
+        <div>
+          <label class="text-[11px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5">Day Highlight Color</label>
+          <div id="colorPickerContainer" class="flex gap-2 items-center">
+            <!-- Dynamically injected color circles -->
+          </div>
+        </div>
 
         <!-- Lectures List for THIS specific day -->
         <div>
@@ -189,7 +209,23 @@
   </div>
 
   <script>
-    const PRESET_TAGS = ['🚀 Induction', '🌉 Bridge Course', '🥊 Workout/Gym', '📚 Quiz/Exam', '🎉 Fest', '🎯 Project', '🤒 Sick Leave', '✨ Chill'];
+    const TIME_SLOTS = [
+      "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", 
+      "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", 
+      "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", 
+      "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM"
+    ];
+
+    const PRESET_TAGS = ['🚀 Induction', '🌉 Bridge Course', '🏖️ Sunday / Holiday', '🥊 Workout/Gym', '📚 Quiz/Exam', '🎉 Fest', '🎯 Project', '🤒 Sick Leave'];
+
+    const DAY_COLORS = [
+      { id: 'default', label: 'Default', bg: 'bg-slate-900', border: 'border-slate-800', dot: 'bg-slate-700' },
+      { id: 'cyan', label: 'Bridge Blue', bg: 'bg-cyan-950/40', border: 'border-cyan-500/50', dot: 'bg-cyan-400' },
+      { id: 'purple', label: 'Event Purple', bg: 'bg-purple-950/40', border: 'border-purple-500/50', dot: 'bg-purple-400' },
+      { id: 'amber', label: 'Warning Amber', bg: 'bg-amber-950/40', border: 'border-amber-500/50', dot: 'bg-amber-400' },
+      { id: 'rose', label: 'Holiday Rose', bg: 'bg-rose-950/40', border: 'border-rose-500/50', dot: 'bg-rose-400' },
+      { id: 'emerald', label: 'Green', bg: 'bg-emerald-950/40', border: 'border-emerald-500/50', dot: 'bg-emerald-400' }
+    ];
     
     const DEFAULT_TIMETABLE = {
       1: [{ time: "09:00 AM", subject: "Financial Accounting" }, { time: "10:30 AM", subject: "Business Economics" }, { time: "12:00 PM", subject: "Marketing" }],
@@ -208,7 +244,10 @@
 
     const saved = localStorage.getItem('college_attendance_data');
     if (saved) {
-      try { appData = JSON.parse(saved); } catch(e) { console.error(e); }
+      try { 
+        const parsed = JSON.parse(saved);
+        appData = { ...appData, ...parsed };
+      } catch(e) { console.error(e); }
     }
 
     let activeYear = new Date().getFullYear();
@@ -216,6 +255,7 @@
     let activeModalDate = null;
     let selectedModalTags = [];
     let modalPeriodsBuffer = [];
+    let selectedModalColor = 'default';
 
     function persist() {
       localStorage.setItem('college_attendance_data', JSON.stringify(appData));
@@ -275,10 +315,22 @@
         const dayData = appData.days[dateStr];
         const isToday = dateStr === todayStr;
 
+        const dateObj = new Date(activeYear, activeMonth, day);
+        const dayOfWeek = dateObj.getDay(); // 0: Sun, 6: Sat
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+        let colorStyle = 'bg-slate-900 border-slate-800/80';
+        if (dayData && dayData.color && dayData.color !== 'default') {
+          const cObj = DAY_COLORS.find(c => c.id === dayData.color);
+          if (cObj) colorStyle = `${cObj.bg} ${cObj.border}`;
+        } else if (isWeekend && (!dayData || !dayData.color)) {
+          colorStyle = 'bg-slate-900/60 border-slate-800/40';
+        }
+
         const cell = document.createElement('div');
         cell.onclick = () => openDayModal(dateStr);
-        cell.className = `h-20 p-1 bg-slate-900 rounded-lg border flex flex-col justify-between cursor-pointer transition active:scale-95 ${
-          isToday ? 'border-emerald-500/80 bg-slate-800/80 ring-1 ring-emerald-500' : 'border-slate-800/80 hover:border-slate-700'
+        cell.className = `h-20 p-1 rounded-lg border flex flex-col justify-between cursor-pointer transition active:scale-95 ${colorStyle} ${
+          isToday ? 'ring-1 ring-emerald-400 border-emerald-400' : 'hover:border-slate-700'
         }`;
 
         let dotsHtml = '';
@@ -298,9 +350,14 @@
           noteBadge = `<div class="text-[9px] bg-slate-800 text-amber-300 font-semibold px-1 py-0.5 rounded truncate border border-slate-700">${text}</div>`;
         }
 
+        let dayNumberColor = 'text-slate-300';
+        if (isToday) dayNumberColor = 'text-emerald-400 font-extrabold';
+        else if (dayOfWeek === 0) dayNumberColor = 'text-rose-400/80';
+        else if (dayOfWeek === 6) dayNumberColor = 'text-amber-400/80';
+
         cell.innerHTML = `
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold ${isToday ? 'text-emerald-400' : 'text-slate-300'}">${day}</span>
+            <span class="text-[11px] font-bold ${dayNumberColor}">${day}</span>
             ${dotsHtml}
           </div>
           ${noteBadge}
@@ -310,7 +367,7 @@
       lucide.createIcons();
     }
 
-    // --- DAY MODAL / LOGGING (WITH DIRECT EDITING) ---
+    // --- DAY MODAL / LOGGING ---
     function openDayModal(dateStr) {
       activeModalDate = dateStr;
       const d = new Date(dateStr + 'T00:00:00');
@@ -324,14 +381,17 @@
       if (dayData && dayData.periods) {
         modalPeriodsBuffer = JSON.parse(JSON.stringify(dayData.periods));
         selectedModalTags = dayData.tags || [];
+        selectedModalColor = dayData.color || 'default';
         document.getElementById('modalNoteInput').value = dayData.note || '';
       } else {
         const sched = appData.timetable[dayOfWeek] || [];
         modalPeriodsBuffer = sched.map(s => ({ subject: s.subject, time: s.time, status: 'unmarked' }));
-        selectedModalTags = [];
+        selectedModalTags = (dayOfWeek === 0 || dayOfWeek === 6) ? ['🏖️ Sunday / Holiday'] : [];
+        selectedModalColor = (dayOfWeek === 0) ? 'rose' : 'default';
         document.getElementById('modalNoteInput').value = '';
       }
 
+      renderModalColorPicker();
       renderModalPeriods();
       renderModalTags();
       document.getElementById('dayModal').classList.remove('hidden');
@@ -340,6 +400,22 @@
 
     function closeModal() {
       document.getElementById('dayModal').classList.add('hidden');
+    }
+
+    function renderModalColorPicker() {
+      const container = document.getElementById('colorPickerContainer');
+      container.innerHTML = DAY_COLORS.map(c => `
+        <button onclick="setModalColor('${c.id}')" class="w-6 h-6 rounded-full ${c.dot} flex items-center justify-center transition ${
+          selectedModalColor === c.id ? 'ring-2 ring-white scale-110' : 'opacity-60 hover:opacity-100'
+        }" title="${c.label}">
+          ${selectedModalColor === c.id ? '<span class="text-[10px] text-black font-bold">✓</span>' : ''}
+        </button>
+      `).join('');
+    }
+
+    function setModalColor(colorId) {
+      selectedModalColor = colorId;
+      renderModalColorPicker();
     }
 
     function renderModalPeriods() {
@@ -354,25 +430,33 @@
         return;
       }
 
-      container.innerHTML = modalPeriodsBuffer.map((p, idx) => `
-        <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700/60 space-y-2">
-          <div class="flex items-center gap-1.5">
-            <input type="text" value="${p.time || ''}" placeholder="Time" onchange="updateModalPeriodField(${idx}, 'time', this.value)" class="bg-slate-900 text-[10px] font-mono text-slate-300 px-2 py-1 rounded w-20 border border-slate-700 focus:outline-none focus:border-emerald-500" />
-            <input type="text" value="${p.subject}" placeholder="Subject Name" onchange="updateModalPeriodField(${idx}, 'subject', this.value)" class="bg-slate-900 text-xs font-bold text-white px-2 py-1 rounded flex-1 border border-slate-700 focus:outline-none focus:border-emerald-500" />
-            <button onclick="deleteModalPeriod(${idx})" class="p-1 text-slate-500 hover:text-rose-400" title="Delete Lecture">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-          <div class="flex items-center justify-between pt-1 border-t border-slate-700/50">
-            <span class="text-[10px] text-slate-400 font-medium">Status:</span>
-            <div class="flex gap-1.5">
-              <button onclick="setModalPeriodStatus(${idx}, 'present')" class="px-2.5 py-1 rounded text-xs font-bold transition ${p.status === 'present' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-700 text-slate-300'}">✓ Present</button>
-              <button onclick="setModalPeriodStatus(${idx}, 'absent')" class="px-2.5 py-1 rounded text-xs font-bold transition ${p.status === 'absent' ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-700 text-slate-300'}">✕ Absent</button>
-              <button onclick="setModalPeriodStatus(${idx}, 'cancelled')" class="px-2 py-1 rounded text-xs font-bold transition ${p.status === 'cancelled' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'}">⚪ Off</button>
+      container.innerHTML = modalPeriodsBuffer.map((p, idx) => {
+        const timeOptions = TIME_SLOTS.map(t => `<option value="${t}" ${p.time === t ? 'selected' : ''}>${t}</option>`).join('');
+        const isCustomTime = p.time && !TIME_SLOTS.includes(p.time);
+        
+        return `
+          <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700/60 space-y-2">
+            <div class="flex items-center gap-1.5">
+              <select onchange="updateModalPeriodField(${idx}, 'time', this.value)" class="bg-slate-900 text-[11px] font-semibold text-slate-200 px-2 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500">
+                ${timeOptions}
+                ${isCustomTime ? `<option value="${p.time}" selected>${p.time}</option>` : ''}
+              </select>
+              <input type="text" value="${p.subject}" placeholder="Subject Name" onchange="updateModalPeriodField(${idx}, 'subject', this.value)" class="bg-slate-900 text-xs font-bold text-white px-2.5 py-1.5 rounded-lg flex-1 border border-slate-700 focus:outline-none focus:border-emerald-500" />
+              <button onclick="deleteModalPeriod(${idx})" class="p-1.5 text-slate-500 hover:text-rose-400" title="Delete Lecture">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-slate-700/50">
+              <span class="text-[10px] text-slate-400 font-medium">Status:</span>
+              <div class="flex gap-1.5">
+                <button onclick="setModalPeriodStatus(${idx}, 'present')" class="px-2.5 py-1 rounded text-xs font-bold transition ${p.status === 'present' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-700 text-slate-300'}">✓ Present</button>
+                <button onclick="setModalPeriodStatus(${idx}, 'absent')" class="px-2.5 py-1 rounded text-xs font-bold transition ${p.status === 'absent' ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-700 text-slate-300'}">✕ Absent</button>
+                <button onclick="setModalPeriodStatus(${idx}, 'cancelled')" class="px-2.5 py-1 rounded text-xs font-bold transition ${p.status === 'cancelled' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'}">⚪ Off</button>
+              </div>
             </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
       lucide.createIcons();
     }
 
@@ -425,7 +509,8 @@
       appData.days[activeModalDate] = {
         periods: modalPeriodsBuffer,
         note: document.getElementById('modalNoteInput').value.trim(),
-        tags: selectedModalTags
+        tags: selectedModalTags,
+        color: selectedModalColor
       };
       closeModal();
       persist();
@@ -552,15 +637,20 @@
       const periods = appData.timetable[day] || [];
       const list = document.getElementById('periodList');
 
-      list.innerHTML = periods.map((p, idx) => `
-        <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-xl border border-slate-700">
-          <input type="text" value="${p.time}" onchange="updatePeriod(${day}, ${idx}, 'time', this.value)" class="bg-slate-900 text-[11px] font-mono text-slate-300 px-2 py-1 rounded w-20 border border-slate-700" />
-          <input type="text" value="${p.subject}" onchange="updatePeriod(${day}, ${idx}, 'subject', this.value)" class="bg-slate-900 text-xs font-bold text-white px-2 py-1 rounded flex-1 border border-slate-700" />
-          <button onclick="removePeriod(${day}, ${idx})" class="p-1 text-slate-500 hover:text-rose-400">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
-        </div>
-      `).join('');
+      list.innerHTML = periods.map((p, idx) => {
+        const timeOptions = TIME_SLOTS.map(t => `<option value="${t}" ${p.time === t ? 'selected' : ''}>${t}</option>`).join('');
+        return `
+          <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-xl border border-slate-700">
+            <select onchange="updatePeriod(${day}, ${idx}, 'time', this.value)" class="bg-slate-900 text-[11px] font-semibold text-slate-200 px-2 py-1 rounded border border-slate-700 focus:outline-none">
+              ${timeOptions}
+            </select>
+            <input type="text" value="${p.subject}" onchange="updatePeriod(${day}, ${idx}, 'subject', this.value)" class="bg-slate-900 text-xs font-bold text-white px-2 py-1 rounded flex-1 border border-slate-700" />
+            <button onclick="removePeriod(${day}, ${idx})" class="p-1 text-slate-500 hover:text-rose-400">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
       lucide.createIcons();
     }
 
@@ -581,6 +671,39 @@
       appData.timetable[day].splice(idx, 1);
       persist();
       renderTimetableEditor();
+    }
+
+    // --- SYNC & BACKUP TOOLS ---
+    function exportBackupData() {
+      const jsonStr = JSON.stringify(appData);
+      navigator.clipboard.writeText(jsonStr).then(() => {
+        alert("Backup copied to clipboard! You can also download the backup file.");
+      }).catch(() => {});
+
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `attendance_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+    }
+
+    function promptImportData() {
+      const input = prompt("Paste your exported JSON backup code here:");
+      if (!input) return;
+      try {
+        const parsed = JSON.parse(input.trim());
+        if (parsed.days || parsed.timetable) {
+          appData = parsed;
+          persist();
+          alert("Backup successfully restored!");
+          location.reload();
+        } else {
+          alert("Invalid backup data format.");
+        }
+      } catch(e) {
+        alert("Error parsing backup data. Please paste valid JSON.");
+      }
     }
 
     function resetAllData() {
