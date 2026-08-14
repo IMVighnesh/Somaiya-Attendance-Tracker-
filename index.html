@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>College Attendance & Life Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans pb-16">
+
+  <!-- TOP HEADER & STATS BAR -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 px-4 py-3 shadow-md">
+    <div class="flex items-center justify-between mb-2">
+      <div>
+        <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
+          <span>🎓</span> Attendance Tracker
+        </h1>
+        <p class="text-xs text-slate-400">Target: <span id="targetDisplay" class="font-semibold text-emerald-400">75%</span></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-full flex items-center gap-1">
+          <span class="text-sm">🔥</span>
+          <span id="streakCount" class="text-xs font-bold text-amber-400">0 Day Streak</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overall Attendance Card -->
+    <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700/60 flex items-center justify-between">
+      <div>
+        <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Aggregate Attendance</div>
+        <div class="flex items-baseline gap-2 mt-0.5">
+          <span id="overallPercentage" class="text-2xl font-extrabold text-white">0%</span>
+          <span id="overallCounts" class="text-xs text-slate-400 font-medium">(0/0 lectures)</span>
+        </div>
+      </div>
+      <div id="safetyBadge" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-700 text-slate-300">
+        No Data
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <div class="flex border-b border-slate-800 bg-slate-900/60 sticky top-[105px] z-20 backdrop-blur-md">
+    <button onclick="switchTab('calendar')" id="tab-calendar" class="flex-1 py-2.5 text-center text-xs font-bold border-b-2 border-emerald-500 text-emerald-400 transition-colors">
+      📅 Calendar
+    </button>
+    <button onclick="switchTab('analytics')" id="tab-analytics" class="flex-1 py-2.5 text-center text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors">
+      📊 Subjects
+    </button>
+    <button onclick="switchTab('timetable')" id="tab-timetable" class="flex-1 py-2.5 text-center text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors">
+      ⚙️ Timetable
+    </button>
+  </div>
+
+  <!-- MAIN VIEW CONTAINER -->
+  <main class="flex-1 p-3.5 max-w-lg mx-auto w-full">
+
+    <!-- VIEW 1: CALENDAR -->
+    <section id="view-calendar" class="block space-y-3">
+      <!-- Month Navigator -->
+      <div class="flex items-center justify-between bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
+        <button onclick="prevMonth()" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 active:bg-slate-700">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        </button>
+        <span id="currentMonthYear" class="text-sm font-bold text-slate-200">August 2026</span>
+        <button onclick="nextMonth()" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 active:bg-slate-700">
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Calendar Days Header -->
+      <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400 uppercase py-1">
+        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+      </div>
+
+      <!-- Calendar 7-Column Grid -->
+      <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+    </section>
+
+    <!-- VIEW 2: SUBJECT ANALYTICS -->
+    <section id="view-analytics" class="hidden space-y-3">
+      <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+        <h2 class="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Subject Wise Breakdown</h2>
+        <div id="subjectAnalyticsList" class="space-y-2.5">
+          <!-- Dynamically Injected -->
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: TIMETABLE & SUBJECT CONFIG -->
+    <section id="view-timetable" class="hidden space-y-4">
+      <!-- Target Attendance Setting -->
+      <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
+        <label class="text-xs font-bold text-slate-300 uppercase block mb-1.5">Target Attendance Goal (%)</label>
+        <div class="flex items-center gap-3">
+          <input id="targetInput" type="range" min="50" max="90" value="75" class="w-full accent-emerald-500" oninput="updateTarget(this.value)" />
+          <span id="targetInputVal" class="text-sm font-bold text-emerald-400">75%</span>
+        </div>
+      </div>
+
+      <!-- Daily Timetable Setup -->
+      <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs uppercase tracking-wider font-bold text-slate-300">Weekly Master Schedule</h2>
+          <select id="scheduleDaySelect" onchange="renderTimetableEditor()" class="bg-slate-800 text-xs text-slate-200 px-2 py-1 rounded-lg border border-slate-700 font-semibold outline-none">
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
+
+        <div id="periodList" class="space-y-2 mb-3"></div>
+
+        <button onclick="addPeriodToDay()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-emerald-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center gap-1">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Lecture Period
+        </button>
+      </div>
+
+      <!-- Reset / Manage Data -->
+      <div class="p-3.5 bg-rose-950/20 border border-rose-900/40 rounded-xl">
+        <h3 class="text-xs font-bold text-rose-400 mb-1">Clear Data</h3>
+        <p class="text-[11px] text-slate-400 mb-2">Reset all stored attendance and restore defaults.</p>
+        <button onclick="resetAllData()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">Reset Tracker</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- DAY EDIT BOTTOM SHEET MODAL -->
+  <div id="dayModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col justify-end hidden">
+    <div class="bg-slate-900 border-t border-slate-800 rounded-t-2xl max-h-[85vh] flex flex-col p-4 shadow-2xl max-w-lg mx-auto w-full">
+      <!-- Sheet Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div>
+          <h2 id="modalDateTitle" class="text-base font-bold text-white">August 14, 2026</h2>
+          <p id="modalDaySubtitle" class="text-xs text-slate-400">Friday Schedule</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="overflow-y-auto no-scrollbar py-3 space-y-4 flex-1">
+        <!-- Quick Action: Mark All Present -->
+        <button onclick="markAllPresentForModal()" class="w-full py-2 bg-emerald-600 active:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950">
+          <span>⚡</span> Mark All Lectures Present
+        </button>
+
+        <!-- Lectures List for the Day -->
+        <div>
+          <label class="text-[11px] uppercase font-bold tracking-wider text-slate-400 block mb-2">Periods & Attendance</label>
+          <div id="modalPeriodList" class="space-y-2"></div>
+        </div>
+
+        <!-- Contextual Tags -->
+        <div>
+          <label class="text-[11px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5">Mood & Activity Tags</label>
+          <div id="tagPillsContainer" class="flex flex-wrap gap-1.5">
+            <!-- Preset Tags injected -->
+          </div>
+        </div>
+
+        <!-- Special Event / Daily Highlight -->
+        <div>
+          <label class="text-[11px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5">Special Event / Memory</label>
+          <input id="modalNoteInput" type="text" placeholder="e.g. Accounts Test, College Fest, Boxing Gym..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" />
+        </div>
+      </div>
+
+      <!-- Save Button -->
+      <div class="pt-2 border-t border-slate-800">
+        <button onclick="saveModalDay()" class="w-full py-2.5 bg-slate-100 hover:bg-white text-slate-900 rounded-xl text-xs font-extrabold shadow-md">
+          Save Day
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- DATA STATE INITIALIZATION ---
+    const PRESET_TAGS = ['🚀 Orientation', '🥊 Workout/Gym', '📚 Quiz/Exam', '🎉 Fest', '🎯 Project', '🤒 Sick Leave', '✨ Chill'];
+    
+    const DEFAULT_TIMETABLE = {
+      1: [{ time: "09:00 AM", subject: "Financial Accounting" }, { time: "10:30 AM", subject: "Business Economics" }, { time: "12:00 PM", subject: "Marketing" }],
+      2: [{ time: "08:30 AM", subject: "Business Law" }, { time: "10:00 AM", subject: "Management Concepts" }, { time: "11:30 AM", subject: "Quantitative Tech" }],
+      3: [{ time: "09:00 AM", subject: "Financial Accounting" }, { time: "10:30 AM", subject: "Business Comm Lab" }, { time: "01:00 PM", subject: "IT in Business" }],
+      4: [{ time: "08:30 AM", subject: "Management Concepts" }, { time: "10:00 AM", subject: "Business Economics" }, { time: "11:30 AM", subject: "Quantitative Tech" }],
+      5: [{ time: "09:00 AM", subject: "Business Law" }, { time: "10:30 AM", subject: "Financial Accounting" }, { time: "12:00 PM", subject: "Mentorship / Project" }],
+      6: []
+    };
+
+    let appData = {
+      target: 75,
+      timetable: DEFAULT_TIMETABLE,
+      days: {} // Key: YYYY-MM-DD -> { periods: [{subject, status}], note: '', tags: [] }
+    };
+
+    // Load from LocalStorage
+    const saved = localStorage.getItem('college_attendance_data');
+    if (saved) {
+      try { appData = JSON.parse(saved); } catch(e) { console.error(e); }
+    }
+
+    let activeYear = new Date().getFullYear();
+    let activeMonth = new Date().getMonth();
+    let activeModalDate = null;
+    let selectedModalTags = [];
+
+    function persist() {
+      localStorage.setItem('college_attendance_data', JSON.stringify(appData));
+      updateGlobalStats();
+      renderCalendar();
+      lucide.createIcons();
+    }
+
+    // --- TAB SWITCHING ---
+    function switchTab(tab) {
+      ['calendar', 'analytics', 'timetable'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tab) {
+          btn.className = "flex-1 py-2.5 text-center text-xs font-bold border-b-2 border-emerald-500 text-emerald-400 transition-colors";
+        } else {
+          btn.className = "flex-1 py-2.5 text-center text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors";
+        }
+      });
+      if (tab === 'analytics') renderAnalytics();
+      if (tab === 'timetable') renderTimetableEditor();
+      lucide.createIcons();
+    }
+
+    // --- CALENDAR RENDERING ---
+    const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+    function prevMonth() {
+      activeMonth--;
+      if (activeMonth < 0) { activeMonth = 11; activeYear--; }
+      renderCalendar();
+    }
+
+    function nextMonth() {
+      activeMonth++;
+      if (activeMonth > 11) { activeMonth = 0; activeYear++; }
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      document.getElementById('currentMonthYear').textContent = `${MONTHS[activeMonth]} ${activeYear}`;
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+
+      const firstDayOfMonth = new Date(activeYear, activeMonth, 1).getDay();
+      const startingCol = (firstDayOfMonth === 0 ? 7 : firstDayOfMonth) - 1; 
+      const totalDays = new Date(activeYear, activeMonth + 1, 0).getDate();
+
+      // Empty padding cells
+      for (let i = 0; i < startingCol; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = "h-20 bg-slate-900/30 rounded-lg border border-slate-900/60 opacity-20";
+        grid.appendChild(emptyCell);
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dateStr = `${activeYear}-${String(activeMonth+1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayData = appData.days[dateStr];
+        const isToday = dateStr === todayStr;
+
+        const cell = document.createElement('div');
+        cell.onclick = () => openDayModal(dateStr);
+        cell.className = `h-20 p-1 bg-slate-900 rounded-lg border flex flex-col justify-between cursor-pointer transition active:scale-95 ${
+          isToday ? 'border-emerald-500/80 bg-slate-800/80 ring-1 ring-emerald-500' : 'border-slate-800/80 hover:border-slate-700'
+        }`;
+
+        let dotsHtml = '';
+        if (dayData && dayData.periods && dayData.periods.length > 0) {
+          const dots = dayData.periods.map(p => {
+            if (p.status === 'present') return '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>';
+            if (p.status === 'absent') return '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>';
+            return '<span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>';
+          }).join('');
+          dotsHtml = `<div class="flex flex-wrap gap-0.5 mt-0.5">${dots}</div>`;
+        }
+
+        let noteBadge = '';
+        if (dayData && (dayData.note || (dayData.tags && dayData.tags.length > 0))) {
+          const text = dayData.note || dayData.tags[0];
+          noteBadge = `<div class="text-[9px] bg-slate-800 text-amber-300 font-semibold px-1 py-0.5 rounded truncate border border-slate-700">${text}</div>`;
+        }
+
+        cell.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold ${isToday ? 'text-emerald-400' : 'text-slate-300'}">${day}</span>
+            ${dotsHtml}
+          </div>
+          ${noteBadge}
+        `;
+        grid.appendChild(cell);
+      }
+      lucide.createIcons();
+    }
+
+    // --- DAY MODAL / LOGGING ---
+    function openDayModal(dateStr) {
+      activeModalDate = dateStr;
+      const d = new Date(dateStr + 'T00:00:00');
+      const dayOfWeek = d.getDay(); // 0 is Sun, 1 is Mon...
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      
+      document.getElementById('modalDateTitle').textContent = `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+      document.getElementById('modalDaySubtitle').textContent = `${dayNames[dayOfWeek]} Schedule`;
+
+      let dayData = appData.days[dateStr];
+      if (!dayData) {
+        // Build fresh from timetable for that day
+        const sched = appData.timetable[dayOfWeek] || [];
+        dayData = {
+          periods: sched.map(s => ({ subject: s.subject, time: s.time, status: 'unmarked' })),
+          note: '',
+          tags: []
+        };
+      }
+
+      selectedModalTags = dayData.tags || [];
+      document.getElementById('modalNoteInput').value = dayData.note || '';
+
+      renderModalPeriods(dayData.periods);
+      renderModalTags();
+
+      document.getElementById('dayModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('dayModal').classList.add('hidden');
+    }
+
+    function renderModalPeriods(periods) {
+      const container = document.getElementById('modalPeriodList');
+      if (!periods || periods.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-500 py-3 text-center">No lectures scheduled for this day.</div>`;
+        return;
+      }
+
+      container.innerHTML = periods.map((p, idx) => `
+        <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700/60 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-white">${p.subject}</div>
+            <div class="text-[10px] text-slate-400">${p.time || 'Period ' + (idx+1)}</div>
+          </div>
+          <div class="flex gap-1">
+            <button onclick="setPeriodStatus(${idx}, 'present')" class="px-2 py-1 rounded text-xs font-bold ${p.status === 'present' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}">✓</button>
+            <button onclick="setPeriodStatus(${idx}, 'absent')" class="px-2 py-1 rounded text-xs font-bold ${p.status === 'absent' ? 'bg-rose-600 text-white' : 'bg-slate-700 text-slate-300'}">✕</button>
+            <button onclick="setPeriodStatus(${idx}, 'cancelled')" class="px-2 py-1 rounded text-xs font-bold ${p.status === 'cancelled' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300'}">⚪</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setPeriodStatus(idx, status) {
+      let dayData = getOrCreateActiveDayData();
+      dayData.periods[idx].status = status;
+      renderModalPeriods(dayData.periods);
+    }
+
+    function markAllPresentForModal() {
+      let dayData = getOrCreateActiveDayData();
+      dayData.periods.forEach(p => p.status = 'present');
+      renderModalPeriods(dayData.periods);
+    }
+
+    function getOrCreateActiveDayData() {
+      if (!appData.days[activeModalDate]) {
+        const d = new Date(activeModalDate + 'T00:00:00');
+        const dayOfWeek = d.getDay();
+        const sched = appData.timetable[dayOfWeek] || [];
+        appData.days[activeModalDate] = {
+          periods: sched.map(s => ({ subject: s.subject, time: s.time, status: 'unmarked' })),
+          note: '',
+          tags: []
+        };
+      }
+      return appData.days[activeModalDate];
+    }
+
+    function renderModalTags() {
+      const container = document.getElementById('tagPillsContainer');
+      container.innerHTML = PRESET_TAGS.map(tag => {
+        const isSelected = selectedModalTags.includes(tag);
+        return `
+          <button onclick="toggleTag('${tag}')" class="px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+            isSelected ? 'bg-emerald-600 border-emerald-500 text-white font-bold' : 'bg-slate-800 border-slate-700 text-slate-300'
+          }">${tag}</button>
+        `;
+      }).join('');
+    }
+
+    function toggleTag(tag) {
+      if (selectedModalTags.includes(tag)) {
+        selectedModalTags = selectedModalTags.filter(t => t !== tag);
+      } else {
+        selectedModalTags.push(tag);
+      }
+      renderModalTags();
+    }
+
+    function saveModalDay() {
+      const dayData = getOrCreateActiveDayData();
+      dayData.note = document.getElementById('modalNoteInput').value.trim();
+      dayData.tags = selectedModalTags;
+      closeModal();
+      persist();
+    }
+
+    // --- GLOBAL STATS, STREAK & ANALYTICS ---
+    function updateGlobalStats() {
+      let attended = 0;
+      let held = 0;
+
+      Object.values(appData.days).forEach(d => {
+        if (d.periods) {
+          d.periods.forEach(p => {
+            if (p.status === 'present') { attended++; held++; }
+            else if (p.status === 'absent') { held++; }
+          });
+        }
+      });
+
+      const percentage = held === 0 ? 0 : Math.round((attended / held) * 100);
+      document.getElementById('overallPercentage').textContent = `${percentage}%`;
+      document.getElementById('overallCounts').textContent = `(${attended}/${held} lectures)`;
+
+      const safetyBadge = document.getElementById('safetyBadge');
+      const target = appData.target || 75;
+
+      if (held === 0) {
+        safetyBadge.className = "px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-700 text-slate-300";
+        safetyBadge.textContent = "No Data";
+      } else if (percentage >= target) {
+        // Calculate safe bunks: (attended) / (held + bunks) >= target/100
+        const maxBunks = Math.floor((attended - (target / 100) * held) / (target / 100));
+        safetyBadge.className = "px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        safetyBadge.textContent = `Safe: Can miss ${Math.max(0, maxBunks)} lectures`;
+      } else {
+        // Calculate needed: (attended + needed) / (held + needed) >= target/100
+        const needed = Math.ceil(((target / 100) * held - attended) / (1 - (target / 100)));
+        safetyBadge.className = "px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30";
+        safetyBadge.textContent = `Must attend ${needed} in a row`;
+      }
+
+      // Calculate streak
+      calculateStreak();
+    }
+
+    function calculateStreak() {
+      const dates = Object.keys(appData.days).sort().reverse();
+      let streak = 0;
+      for (const d of dates) {
+        const data = appData.days[d];
+        if (data.periods && data.periods.length > 0) {
+          const hasAttended = data.periods.some(p => p.status === 'present');
+          const hasAbsent = data.periods.some(p => p.status === 'absent');
+          if (hasAttended && !hasAbsent) streak++;
+          else break;
+        }
+      }
+      document.getElementById('streakCount').textContent = `${streak} Day Streak`;
+    }
+
+    function renderAnalytics() {
+      const subStats = {};
+
+      Object.values(appData.days).forEach(d => {
+        if (d.periods) {
+          d.periods.forEach(p => {
+            if (!subStats[p.subject]) subStats[p.subject] = { held: 0, attended: 0 };
+            if (p.status === 'present') { subStats[p.subject].held++; subStats[p.subject].attended++; }
+            else if (p.status === 'absent') { subStats[p.subject].held++; }
+          });
+        }
+      });
+
+      const container = document.getElementById('subjectAnalyticsList');
+      const keys = Object.keys(subStats);
+      if (keys.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-500 py-3 text-center">No marked subject data yet. Mark attendance on the calendar.</div>`;
+        return;
+      }
+
+      const target = appData.target || 75;
+
+      container.innerHTML = keys.map(sub => {
+        const s = subStats[sub];
+        const pct = s.held === 0 ? 0 : Math.round((s.attended / s.held) * 100);
+        const isSafe = pct >= target;
+
+        let marginText = '';
+        if (s.held === 0) marginText = 'No data';
+        else if (isSafe) {
+          const bunks = Math.floor((s.attended - (target / 100) * s.held) / (target / 100));
+          marginText = `Can skip ${Math.max(0, bunks)} more`;
+        } else {
+          const need = Math.ceil(((target / 100) * s.held - s.attended) / (1 - (target / 100)));
+          marginText = `Attend next ${need} lectures`;
+        }
+
+        return `
+          <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-white">${sub}</span>
+              <span class="text-xs font-extrabold ${isSafe ? 'text-emerald-400' : 'text-rose-400'}">${pct}%</span>
+            </div>
+            <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+              <div class="h-full ${isSafe ? 'bg-emerald-500' : 'bg-rose-500'}" style="width: ${pct}%"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+              <span>${s.attended} / ${s.held} attended</span>
+              <span class="font-semibold ${isSafe ? 'text-emerald-400' : 'text-rose-400'}">${marginText}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // --- TIMETABLE CONFIGURATION ---
+    function updateTarget(val) {
+      appData.target = parseInt(val);
+      document.getElementById('targetInputVal').textContent = `${val}%`;
+      document.getElementById('targetDisplay').textContent = `${val}%`;
+      persist();
+    }
+
+    function renderTimetableEditor() {
+      const day = document.getElementById('scheduleDaySelect').value;
+      const periods = appData.timetable[day] || [];
+      const list = document.getElementById('periodList');
+
+      list.innerHTML = periods.map((p, idx) => `
+        <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-xl border border-slate-700">
+          <input type="text" value="${p.time}" onchange="updatePeriod(${day}, ${idx}, 'time', this.value)" class="bg-slate-900 text-[11px] font-mono text-slate-300 px-2 py-1 rounded w-20 border border-slate-700" />
+          <input type="text" value="${p.subject}" onchange="updatePeriod(${day}, ${idx}, 'subject', this.value)" class="bg-slate-900 text-xs font-bold text-white px-2 py-1 rounded flex-1 border border-slate-700" />
+          <button onclick="removePeriod(${day}, ${idx})" class="p-1 text-slate-500 hover:text-rose-400">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    function addPeriodToDay() {
+      const day = document.getElementById('scheduleDaySelect').value;
+      if (!appData.timetable[day]) appData.timetable[day] = [];
+      appData.timetable[day].push({ time: "09:00 AM", subject: "New Subject" });
+      persist();
+      renderTimetableEditor();
+    }
+
+    function updatePeriod(day, idx, field, val) {
+      appData.timetable[day][idx][field] = val;
+      persist();
+    }
+
+    function removePeriod(day, idx) {
+      appData.timetable[day].splice(idx, 1);
+      persist();
+      renderTimetableEditor();
+    }
+
+    function resetAllData() {
+      if (confirm("Are you sure you want to reset all attendance and restore default schedule?")) {
+        localStorage.removeItem('college_attendance_data');
+        location.reload();
+      }
+    }
+
+    // --- INITIAL BOOT ---
+    document.getElementById('targetInput').value = appData.target || 75;
+    document.getElementById('targetInputVal').textContent = `${appData.target || 75}%`;
+    document.getElementById('targetDisplay').textContent = `${appData.target || 75}%`;
+    renderCalendar();
+    updateGlobalStats();
+    lucide.createIcons();
+  </script>
+</body>
+</html>
